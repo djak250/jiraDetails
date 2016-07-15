@@ -30,8 +30,8 @@ if (error) {
 
 const headers = {
     'Content-Type': 'application/json',
-    url: `${process.env.JIRA_DOMAIN}/rest/api/2/search?fields=id,key,summary`,
-    json: true,
+    Accept: 'application/json',
+    url: `${process.env.JIRA_DOMAIN}/rest/api/2/search`,
     auth: {
         user: process.env.JIRA_USER,
         password: process.env.JIRA_PW
@@ -40,16 +40,16 @@ const headers = {
 let gitBranches = [];
 let gitBranchesSanitized = [];
 
-const buildQuery = function(keys) {
-    let query = '&jql=';
+const buildJQL = function(keys) {
+    let jql = '';
     for (let i = 0; i < keys.length; i++) {
         if (i !== 0) {
-            query += ' OR ';
+            jql += ' OR ';
         }
-        query += `key=${keys[i]}`;
+        jql += `key=${keys[i]}`;
     }
 
-    return query;
+    return jql;
 };
 
 
@@ -117,8 +117,11 @@ stdin.on('readable', () => {
             }
             const missingKeys = jiraIssues.filter((ji) => cachedIssueKeys.indexOf(ji));
             if (missingKeys.length !== 0) {
-                headers.url += buildQuery(missingKeys);
-                request(headers, (err, response, body) => {
+                headers.json = {
+                    jql: buildJQL(missingKeys),
+                    fields: ['id', 'key', 'summary']
+                };
+                request.post(headers, (err, response, body) => {
                     if (!!err) return stderr.write(`${err.toString()}\n`);
                     if (!body) return stderr.write('MISSING BODY\n');
                     if (!body.issues || !body.issues.length) return stderr.write('EMPTY BODY\n');
@@ -142,5 +145,3 @@ stdin.on('readable', () => {
         process.exit(1);
     }
 });
-
-
