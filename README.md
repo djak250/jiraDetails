@@ -11,6 +11,10 @@
 
   `export NODE_TLS_REJECT_UNAUTHORIZED='0'`, if using SSL. Most likely should always be true.
 
+  ###Optional
+
+  `export LOG_LEVEL='error'`, to view error output.
+
 ## Usage
 `git branch | jiraDetails`
 

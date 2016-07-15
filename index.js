@@ -1,6 +1,7 @@
 #! /usr/bin/env node
 'use strict';
 
+const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 const stdin = process.stdin;
 const stdout = process.stdout;
 const stderr = process.stderr;
@@ -92,30 +93,33 @@ const buildBranchList = function() {
         } else {
             gitBranches = gitBranches.map((gb) => {
                 if (gb.indexOf('*') === 0) {
-                    return `\x1b[32m${gb}\x1b[0m`;
+                    return {
+                        current: '*',
+                        branch: `\x1b[32m${gb.replace('* ','')}\x1b[0m`
+                    };
                 }
-                return gb;
+                return { branch: gb };
             });
             stdout.write(`${columnify(gitBranches, columnConfig)}\n`);
         }
     });
 };
 
-function fetchMissingIssues(missingKeys) {
+function fetchMissingIssues(missingKeys, errCb) {
     if (missingKeys.length !== 0) {
         headers.json = {
             jql: buildJQL(missingKeys),
             fields: ['id', 'key', 'summary']
         };
         request.post(headers, (err, response, body) => {
-            if (!!err) return stderr.write(`${err.toString()}\n`);
-            if (!body) return stderr.write('MISSING BODY\n');
+            if (!!err) return errCb(new Error(`${err.toString()}\n`));
+            if (!body) return errCb(new Error('MISSING BODY\n'));
             if (!!body.errorMessages) {
                 const nonExistingKeys = body.errorMessages.map((eM) => /An issue with key '(\S*)' does not exist/.exec(eM)[1]);
                 const newMissingKeys = missingKeys.filter((mk) => nonExistingKeys.indexOf(mk) === -1);
                 return fetchMissingIssues(newMissingKeys);
             }
-            if (!body.issues || !body.issues.length) return stderr.write('EMPTY BODY\n');
+            if (!body.issues || !body.issues.length) return errCb(new Error('EMPTY BODY\n'));
             const issueMap = new Map();
             for (let i = 0; i < body.issues.length; i++) {
                 const issue = body.issues[i];
@@ -153,7 +157,10 @@ stdin.on('readable', () => {
                 cachedIssuesMap.set(issue[0], issue[1]);
             }
             const missingKeys = jiraIssues.filter((ji) => cachedIssueKeys.indexOf(ji) === -1);
-            fetchMissingIssues(missingKeys);
+            fetchMissingIssues(missingKeys, (fetchErr) => {
+                if(LOG_LEVEL === "ERROR") stderr.write(fetchErr.toString());
+                buildBranchList();
+            });
         });
     } else if (!piped) {
         stderr.write('Usage: git branch | jiraDetails\n');
