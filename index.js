@@ -1,4 +1,5 @@
 #! /usr/bin/env node
+'use strict';
 
 const stdin = process.stdin;
 const stdout = process.stdout;
