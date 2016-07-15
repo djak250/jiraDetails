@@ -61,7 +61,7 @@ const buildJQL = function(keys) {
 
 
 const buildBranchList = function() {
-    fs.readFile('/tmp/jira.cache', 'utf8', (err, fileOutput) => {
+    fs.readFile(`${__dirname}/.jira.cache`, 'utf8', (err, fileOutput) => {
         if (fileOutput) {
             const cachedIssuesMap = new Map();
             const cachedIssuesArray = !!fileOutput ? fileOutput.trim().split('\n') : [];
@@ -84,7 +84,7 @@ const buildBranchList = function() {
                 if (gb.branch.indexOf('*') === 0) {
                     return Object.assign({}, gb, {
                         current: '*',
-                        branch: `\x1b[32m${gb.branch.replace('* ','')}\x1b[0m`
+                        branch: `\x1b[32m${gb.branch.replace('* ', '')}\x1b[0m`
                     });
                 }
                 return gb;
@@ -95,7 +95,7 @@ const buildBranchList = function() {
                 if (gb.indexOf('*') === 0) {
                     return {
                         current: '*',
-                        branch: `\x1b[32m${gb.replace('* ','')}\x1b[0m`
+                        branch: `\x1b[32m${gb.replace('* ', '')}\x1b[0m`
                     };
                 }
                 return { branch: gb };
@@ -125,7 +125,12 @@ function fetchMissingIssues(missingKeys, errCb) {
                 const issue = body.issues[i];
                 issueMap.set(issue.key, issue.fields.summary);
             }
-            fs.appendFile('/tmp/jira.cache', `${Array.from(issueMap).map((i) => (`${i[0]}|${i[1]}`)).join('\n')}\n`, 'utf8', buildBranchList);
+            fs.appendFile(
+                `${__dirname}/.jira.cache`,
+                `${Array.from(issueMap).map((i) => (`${i[0]}|${i[1]}`)).join('\n')}\n`,
+                'utf8',
+                buildBranchList
+            );
         });
     } else {
         return buildBranchList();
@@ -147,7 +152,7 @@ stdin.on('readable', () => {
             .filter((b) => /\S-\d/.test(b))
             .map((b) => b.replace(/^\S*\//, ''));
 
-        fs.readFile('/tmp/jira.cache', 'utf8', (err, fileOutput) => {
+        fs.readFile(`${__dirname}/.jira.cache`, 'utf8', (err, fileOutput) => {
             const cachedIssuesMap = new Map();
             const cachedIssuesArray = !!fileOutput ? fileOutput.trim().split('\n') : [];
             const cachedIssueKeys = [];
@@ -158,7 +163,7 @@ stdin.on('readable', () => {
             }
             const missingKeys = jiraIssues.filter((ji) => cachedIssueKeys.indexOf(ji) === -1);
             fetchMissingIssues(missingKeys, (fetchErr) => {
-                if(LOG_LEVEL === "ERROR") stderr.write(fetchErr.toString());
+                if (LOG_LEVEL === 'ERROR') stderr.write(fetchErr.toString());
                 buildBranchList();
             });
         });
