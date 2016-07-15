@@ -5,6 +5,11 @@ const stdout = process.stdout;
 const stderr = process.stderr;
 const request = require('request');
 const fs = require('fs');
+const columnify = require('columnify');
+const columnConfig = {
+    showHeaders: false,
+    columns: ['current', 'branch', 'issue']
+};
 
 let error = false;
 if (!process.env.JIRA_DOMAIN) {
@@ -54,10 +59,10 @@ const buildJQL = function(keys) {
 
 
 const buildBranchList = function() {
-    fs.readFile('/tmp/jira.cache', (err, fileOutput) => {
+    fs.readFile('/tmp/jira.cache', 'utf8', (err, fileOutput) => {
         if (fileOutput) {
             const cachedIssuesMap = new Map();
-            const cachedIssuesArray = !!fileOutput ? fileOutput.toString().trim().split('\n') : [];
+            const cachedIssuesArray = !!fileOutput ? fileOutput.trim().split('\n') : [];
             const cachedIssueKeys = [];
             for (let i = 0; i < cachedIssuesArray.length; i++) {
                 const issue = cachedIssuesArray[i].split('|');
@@ -67,16 +72,22 @@ const buildBranchList = function() {
             const formattedJiraBranches = gitBranches.map((gb) => {
                 if (/\S-\d/.test(gb)) {
                     const sanitizedBranch = gb.trim().replace(/^\*\s*/, '').replace(/^\S*\//, '');
-                    return `${gb} | ${cachedIssuesMap.get(sanitizedBranch)}`;
+                    return {
+                        branch: gb,
+                        issue: cachedIssuesMap.get(sanitizedBranch)
+                    };
                 }
-                return gb;
+                return { branch: gb };
             }).map((gb) => {
-                if (gb.indexOf('*') === 0) {
-                    return `\x1b[32m${gb}\x1b[0m`;
+                if (gb.branch.indexOf('*') === 0) {
+                    return Object.assign({}, gb, {
+                        current: '*',
+                        branch: `\x1b[32m${gb.branch.replace('* ','')}\x1b[0m`
+                    });
                 }
                 return gb;
             });
-            stdout.write(`${formattedJiraBranches.join('\n')}`);
+            stdout.write(`${columnify(formattedJiraBranches, columnConfig)}\n`);
         } else {
             gitBranches = gitBranches.map((gb) => {
                 if (gb.indexOf('*') === 0) {
@@ -84,19 +95,44 @@ const buildBranchList = function() {
                 }
                 return gb;
             });
-            stdout.write(`${gitBranches.join('\n')}`);
+            stdout.write(`${columnify(gitBranches, columnConfig)}\n`);
         }
-        process.exit(0);
     });
 };
 
+function fetchMissingIssues(missingKeys) {
+    if (missingKeys.length !== 0) {
+        headers.json = {
+            jql: buildJQL(missingKeys),
+            fields: ['id', 'key', 'summary']
+        };
+        request.post(headers, (err, response, body) => {
+            if (!!err) return stderr.write(`${err.toString()}\n`);
+            if (!body) return stderr.write('MISSING BODY\n');
+            if (!!body.errorMessages) {
+                const nonExistingKeys = body.errorMessages.map((eM) => /An issue with key '(\S*)' does not exist/.exec(eM)[1]);
+                const newMissingKeys = missingKeys.filter((mk) => nonExistingKeys.indexOf(mk) === -1);
+                return fetchMissingIssues(newMissingKeys);
+            }
+            if (!body.issues || !body.issues.length) return stderr.write('EMPTY BODY\n');
+            const issueMap = new Map();
+            for (let i = 0; i < body.issues.length; i++) {
+                const issue = body.issues[i];
+                issueMap.set(issue.key, issue.fields.summary);
+            }
+            fs.appendFile('/tmp/jira.cache', `${Array.from(issueMap).map((i) => (`${i[0]}|${i[1]}`)).join('\n')}\n`, 'utf8', buildBranchList);
+        });
+    } else {
+        return buildBranchList();
+    }
+}
 
 let piped = false;
 stdin.on('readable', () => {
     const chunk = stdin.read();
     if (chunk !== null) {
         piped = true;
-        gitBranches = chunk.toString().split('\n');
+        gitBranches = chunk.toString().trim().split('\n');
         gitBranchesSanitized = chunk
             .toString()
             .replace(/[ ,*]/g, '')
@@ -106,39 +142,17 @@ stdin.on('readable', () => {
             .filter((b) => /\S-\d/.test(b))
             .map((b) => b.replace(/^\S*\//, ''));
 
-        fs.readFile('/tmp/jira.cache', (err, fileOutput) => {
+        fs.readFile('/tmp/jira.cache', 'utf8', (err, fileOutput) => {
             const cachedIssuesMap = new Map();
-            const cachedIssuesArray = !!fileOutput ? fileOutput.toString().trim().split('\n') : [];
+            const cachedIssuesArray = !!fileOutput ? fileOutput.trim().split('\n') : [];
             const cachedIssueKeys = [];
             for (let i = 0; i < cachedIssuesArray.length; i++) {
                 const issue = cachedIssuesArray[i].split('|');
                 cachedIssueKeys.push(issue[0]);
                 cachedIssuesMap.set(issue[0], issue[1]);
             }
-            const missingKeys = jiraIssues.filter((ji) => cachedIssueKeys.indexOf(ji));
-            if (missingKeys.length !== 0) {
-                headers.json = {
-                    jql: buildJQL(missingKeys),
-                    fields: ['id', 'key', 'summary']
-                };
-                request.post(headers, (err, response, body) => {
-                    if (!!err) return stderr.write(`${err.toString()}\n`);
-                    if (!body) return stderr.write('MISSING BODY\n');
-                    if (!body.issues || !body.issues.length) return stderr.write('EMPTY BODY\n');
-
-
-                    const issueMap = new Map();
-                    for (let i = 0; i < body.issues.length; i++) {
-                        const issue = body.issues[i];
-                        issueMap.set(issue.key, issue.fields.summary);
-                    }
-
-
-                    fs.appendFile('/tmp/jira.cache', `${Array.from(issueMap).map((i) => (`${i[0]}|${i[1]}`)).join('\n')}\n`, buildBranchList);
-                });
-            } else {
-                buildBranchList(null);
-            }
+            const missingKeys = jiraIssues.filter((ji) => cachedIssueKeys.indexOf(ji) === -1);
+            fetchMissingIssues(missingKeys);
         });
     } else if (!piped) {
         stderr.write('Usage: git branch | jiraDetails\n');
