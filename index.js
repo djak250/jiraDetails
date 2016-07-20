@@ -117,7 +117,7 @@ function fetchMissingIssues(missingKeys, errCb) {
             if (!!body.errorMessages) {
                 const nonExistingKeys = body.errorMessages.map((eM) => /An issue with key '(\S*)' does not exist/.exec(eM)[1]);
                 const newMissingKeys = missingKeys.filter((mk) => nonExistingKeys.indexOf(mk) === -1);
-                return fetchMissingIssues(newMissingKeys);
+                return fetchMissingIssues(newMissingKeys, errCb);
             }
             if (!body.issues || !body.issues.length) return errCb(new Error('EMPTY BODY\n'));
             const issueMap = new Map();
