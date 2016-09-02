@@ -115,7 +115,21 @@ function fetchMissingIssues(missingKeys, errCb) {
             if (!!err) return errCb(new Error(`${err.toString()}\n`));
             if (!body) return errCb(new Error('MISSING BODY\n'));
             if (!!body.errorMessages) {
-                const nonExistingKeys = body.errorMessages.map((eM) => /An issue with key '(\S*)' does not exist/.exec(eM)[1]);
+                let nonExistingKeys = [];
+                nonExistingKeys = nonExistingKeys.concat(body.errorMessages.map((eM) => {
+                    const matches = /An issue with key '(\S*)' does not exist/.exec(eM);
+                    if (!!matches) {
+                        return matches[1];
+                    }
+                    return null;
+                }));
+                nonExistingKeys = nonExistingKeys.concat(body.errorMessages.map((eM) => {
+                    const matches = /The issue key '(\S*)' for field 'key' is invalid/.exec(eM);
+                    if (!!matches) {
+                        return matches[1];
+                    }
+                    return null;
+                }));
                 const newMissingKeys = missingKeys.filter((mk) => nonExistingKeys.indexOf(mk) === -1);
                 return fetchMissingIssues(newMissingKeys, errCb);
             }
