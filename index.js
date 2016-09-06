@@ -2,6 +2,12 @@
 'use strict';
 
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
+let htmlOutput = false;
+for (let i = 0; i < process.argv.length; i++) {
+    if (process.argv[i] === '--html') {
+        htmlOutput = true;
+    }
+}
 const stdin = process.stdin;
 const stdout = process.stdout;
 const stderr = process.stderr;
@@ -89,7 +95,14 @@ const buildBranchList = function() {
                 }
                 return gb;
             });
-            stdout.write(`${columnify(formattedJiraBranches, columnConfig)}\n`);
+            let output = `${columnify(formattedJiraBranches, columnConfig)}`;
+            if (htmlOutput) {
+                output = [
+                    `<ul>\n${output.split('\n').map((line) => (`\t<li>${line.trim()}</li>`)).join('\n')}`,
+                    '</ul>'
+                ].join('\n');
+            }
+            stdout.write(`${output}\n`);
         } else {
             gitBranches = gitBranches.map((gb) => {
                 if (gb.indexOf('*') === 0) {
@@ -100,7 +113,14 @@ const buildBranchList = function() {
                 }
                 return { branch: gb };
             });
-            stdout.write(`${columnify(gitBranches, columnConfig)}\n`);
+            let output = `${columnify(gitBranches, columnConfig)}`;
+            if (htmlOutput) {
+                output = [
+                    `<ul>\n${output.split('\n').map((line) => (`\t<li>${line.trim()}</li>`)).join('\n')}`,
+                    '</ul>'
+                ].join('\n');
+            }
+            stdout.write(`${output}\n`);
         }
     });
 };
