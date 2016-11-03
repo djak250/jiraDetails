@@ -3,9 +3,13 @@
 
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 let htmlOutput = false;
+let issueOnly = false;
 for (let i = 0; i < process.argv.length; i++) {
     if (process.argv[i] === '--html') {
         htmlOutput = true;
+    }
+    if (process.argv[i] === '--issue-only') {
+        issueOnly = true;
     }
 }
 const stdin = process.stdin;
@@ -102,7 +106,11 @@ const buildBranchList = function() {
                     '</ul>'
                 ].join('\n');
             }
-            stdout.write(`${output}\n`);
+            if (issueOnly) {
+                stdout.write(`${formattedJiraBranches.map((b) => b.issue).join('\n')}`);
+            } else {
+                stdout.write(`${output}\n`);
+            }
         } else {
             gitBranches = gitBranches.map((gb) => {
                 if (gb.indexOf('*') === 0) {
@@ -120,7 +128,11 @@ const buildBranchList = function() {
                     '</ul>'
                 ].join('\n');
             }
-            stdout.write(`${output}\n`);
+            if (issueOnly) {
+                stdout.write(`${gitBranches.map((b) => b.issue).join('\n')}`);
+            } else {
+                stdout.write(`${output}\n`);
+            }
         }
     });
 };
