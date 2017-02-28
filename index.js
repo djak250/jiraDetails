@@ -3,10 +3,14 @@
 
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 let htmlOutput = false;
+let markDownOutput = false;
 let issueOnly = false;
 for (let i = 0; i < process.argv.length; i++) {
     if (process.argv[i] === '--html') {
         htmlOutput = true;
+    }
+    if (process.argv[i] === '--markdown') {
+        markDownOutput = true;
     }
     if (process.argv[i] === '--issue-only') {
         issueOnly = true;
@@ -105,12 +109,21 @@ const buildBranchList = function() {
                     `<ul>\n${output.split('\n').map((line) => (`\t<li>${line.trim()}</li>`)).join('\n')}`,
                     '</ul>'
                 ].join('\n');
-            }
-            if (issueOnly) {
+            } else if (markDownOutput) {
+                output = output.split('\n').map((line) => {
+                    const match = line.match(/feature\/\w*-\d*/);
+                    if (match) {
+                        let featureContents = line.split(' ');
+                        featureContents = featureContents.slice(featureContents.indexOf(match[0]) + 1);
+                        return `**${match[0].replace(/feature\//, '')}** - ${featureContents.join(' ')}`;
+                    }
+                    return line;
+                }).join('\n');
+            } else if (issueOnly) {
                 stdout.write(`${formattedJiraBranches.map((b) => b.issue).join('\n')}`);
-            } else {
-                stdout.write(`${output}\n`);
+                return;
             }
+            stdout.write(`${output}\n`);
         } else {
             gitBranches = gitBranches.map((gb) => {
                 if (gb.indexOf('*') === 0) {
