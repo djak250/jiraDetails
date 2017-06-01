@@ -111,7 +111,7 @@ const buildBranchList = function() {
                 ].join('\n');
             } else if (markDownOutput) {
                 output = output.split('\n').map((line) => {
-                    const match = line.match(/feature\/\w*-\d*/);
+                    const match = line.match(/\w*-\d*/);
                     if (match) {
                         let featureContents = line.split(' ');
                         featureContents = featureContents.slice(featureContents.indexOf(match[0]) + 1);
