@@ -101,15 +101,15 @@ const buildJQL = function(keys) {
     return jql;
 };
 
-function fetchMissingIssues(missingKeys, cb, errCb) {
+function fetchMissingIssues(missingKeys, cb) {
     if (missingKeys.length !== 0) {
         headers.json = {
             jql: buildJQL(missingKeys),
             fields: ['id', 'key', 'summary']
         };
         request.post(headers, (err, response, body) => {
-            if (!!err) return errCb(new Error(`${err.toString()}\n`));
-            if (!body) return errCb(new Error('MISSING BODY\n'));
+            if (!!err) return cb(new Error(`${err.toString()}\n`));
+            if (!body) return cb(new Error('MISSING BODY\n'));
             if (!!body.errorMessages) {
                 let nonExistingKeys = [];
                 nonExistingKeys = nonExistingKeys.concat(body.errorMessages.map((eM) => {
@@ -127,9 +127,9 @@ function fetchMissingIssues(missingKeys, cb, errCb) {
                     return null;
                 }));
                 const newMissingKeys = missingKeys.filter((mk) => nonExistingKeys.indexOf(mk) === -1);
-                return fetchMissingIssues(newMissingKeys, cb, errCb);
+                return fetchMissingIssues(newMissingKeys, cb);
             }
-            if (!body.issues || !body.issues.length) return errCb(new Error('EMPTY BODY\n'));
+            if (!body.issues || !body.issues.length) return cb(new Error('EMPTY BODY\n'));
             const missingIssueMap = new Map(body.issues.map((issue) => [issue.key, issue.fields.summary]));
             appendCache(missingIssueMap, cb);
         });
@@ -178,14 +178,14 @@ STDIN.on('readable', () => {
         if (GIT_OUTPUT) {
             gitBranches = gitBranches.concat(chunk.toString().trim().split('\n'));
             issueKeys = gitBranches
-                .filter((gb) => /\w+-\d+/.test(gb))
+                .filter((gb) => /[a-zA-Z]+-\d+/.test(gb))
                 .map((gb) => {
                     // Adds the jira issue ticket to the branch description key
-                    gitBranchMap.set(gb, gb.match(/\w+-\d+/)[0].toUpperCase());
-                    return gb.match(/\w+-\d+/)[0].toUpperCase();
+                    gitBranchMap.set(gb, gb.match(/[a-zA-Z]+-\d+/)[0].toUpperCase());
+                    return gb.match(/[a-zA-Z]+-\d+/)[0].toUpperCase();
                 });
         } else {
-            issueKeys = chunk.toString().trim().match(/\w+-\d+/g) || [];
+            issueKeys = chunk.toString().trim().match(/[a-zA-Z]+-\d+/g) || [];
             issueKeys = issueKeys.map(i => i.toUpperCase());
         }
 
@@ -193,7 +193,8 @@ STDIN.on('readable', () => {
             const cachedIssueKeys = Array.from(cachedIssuesMap.keys());
             const missingKeys = issueKeys.filter((ji) => cachedIssueKeys.indexOf(ji) === -1);
             fetchMissingIssues(missingKeys,
-            () => {
+            (fetchError) => {
+                if (LOG_LEVEL === 'ERROR' && !!fetchError) STDERR.write(fetchError.toString());
                 loadCache((issues) => {
                     const outputIssueMap = new Map();
                     for (let i = 0, l = issueKeys.length; i < l; i++) {
@@ -204,8 +205,6 @@ STDIN.on('readable', () => {
                     }
                     printToScreen(outputIssueMap);
                 });
-            }, (fetchError) => {
-                if (LOG_LEVEL === 'ERROR') STDERR.write(fetchError.toString());
             });
         });
     } else if (!READ_DATA) {
