@@ -19,8 +19,9 @@
 
 ## Arguments
 - `--git`
--- Use this option when passing in git branch out. Will return the branches in the same format with the jira summaries to the end of each line
--- NOTE: This will only match the first issue per line, to remain consistent with a single line for each branch. Eg., feature/ABC-1234-and-DEF-5678 will only match the ABC-1234, and display it's summary.
+  - Use this option when passing in git branch out. Will return the branches in the same format with the jira summaries to the end of each line
+  - NOTE: This will only match the first issue per line, to remain consistent with a single line for each branch. Eg., feature/ABC-1234-and-DEF-5678 will only match the ABC-1234, and display it's summary. 
+  - Add `--color` to `git branch` and `git branch --all` maintain color output when piped through `jiraDetails`.
   ```shell
   * feature/ABC-100 | Detail JiraDetails
     feature/ABC-101 | Document JiraDetails
@@ -29,7 +30,7 @@
     nonJiraBranch
   ```
 - `--html`
--- Outputs issues in an unordered list formatted in HTML
+  - Outputs issues in an unordered list formatted in HTML
     ```html
     <ul>
         <li><b>TKA-1234</b> - Fix the problem with IRA's not being able to fill out the information</li>
@@ -37,13 +38,13 @@
     ```
 
 - `--markdown`
--- Outputs issues in an unordered list formatted in Markdown
+  - Outputs issues in an unordered list formatted in Markdown
     ```
     - **TKA-1234** - Fix the problem with IRA's not being able to fill out the information
     ```
 
 - `--summary`
--- Outputs only the summary for the input issues
+  - Outputs only the summary for the input issues
 
 ## Example
 ```shell
