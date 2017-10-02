@@ -23,6 +23,7 @@ const gitBranchMap = new Map();
 let HTML_OUTPUT = false;
 let MARKDOWN_OUTPUT = false;
 let SUMMARY_OUTPUT = false;
+let inputIssueTicket = null;
 
 for (let i = 0; i < process.argv.length; i++) {
     if (process.argv[i] === '--git') {
@@ -33,6 +34,8 @@ for (let i = 0; i < process.argv.length; i++) {
         MARKDOWN_OUTPUT = true;
     } else if (process.argv[i] === '--summary') {
         SUMMARY_OUTPUT = true;
+    } else if (/\w{1,4}-\d+/.test(process.argv[i])) {
+        inputIssueTicket = process.argv[i];
     }
 }
 
@@ -168,10 +171,11 @@ const printToScreen = function(issuesToPrintMap /* { Issue: Summary} */) {
         }
     }
     STDOUT.write('\n');
+    process.exit(0);
 };
 
 STDIN.on('readable', () => {
-    const chunk = STDIN.read();
+    const chunk = STDIN.read() || inputIssueTicket;
     if (chunk !== null) {
         READ_DATA = true; // Flag to prevent exit as data has been read regardless of future null reads
         let issueKeys = [];

@@ -15,7 +15,8 @@
   `export LOG_LEVEL='error'`, to view error output.
 
 ## Usage
-`git branch | jiraDetails`
+`git branch | jiraDetails`  
+`jiraDetails ABC-1234` #Direct input
 
 ## Arguments
 - `--git`
